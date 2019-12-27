@@ -5,6 +5,8 @@ RHS ED - Arrival rates and LOS at each ED area
 Nayef 
 */-------------------------------------------------------------------------
 
+declare @start_param as date = '2018/4/1'
+declare @end_param as date = '2019/3/31'
 
 -- create a list of unique VisitIDs from vwEDVisitAreaRegional 
 -- purpose: this splits the filtering criteria and the final query into two steps 
@@ -19,7 +21,7 @@ where FacilityShortName='RHS'
 	-- If we're not focussing on a particular ED area, we can drop this next filter
 	-- and EmergencyAreaDescription='Shortstay Peds - ED' 
 
-	and EmergencyAreaDate between '2017/4/1' and '2019/3/31';
+	and EmergencyAreaDate between @start_param and @end_param;
 
 
 
@@ -89,5 +91,15 @@ from(
 -- select * from #t3_arrivals_and_los order by VisitID, AreaDate, InDateTime
 
 
+-- aggregate by ED area: 
+select EmergencyAreaDescription
+	, datepart(hour, InDateTime)
+	, count(*) as num_arrivals 
+	, avg(LOSperArrival)*1.0 AS avg_LOS
 
+from #t3_arrivals_and_los
+group by EmergencyAreaDescription
+	, datepart(hour, InDateTime)
+order by EmergencyAreaDescription
+	, datepart(hour, InDateTime)
 

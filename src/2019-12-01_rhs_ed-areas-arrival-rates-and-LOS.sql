@@ -1,20 +1,9 @@
 
-
-select distinct [EmergencyAreaDescription]
-from EDMart.dbo.vwEDVisitAreaRegional
-where FacilityShortName='RHS';
-
-select L.*, R.DispositionDate, R.DispositionTime, R.AdmittedFlag, R.Age
-, DispositionDate+DispositionTime as DischargeDateTime
-, R.StartDate, R.StartTime
-, StartDate+StartTime as StartDateTime
-from EDMart.dbo.vwEDVisitAreaRegional L
-	left join EDMart.dbo.vwEDVisitIdentifiedRegional R
-	on L.VisitID=R.visitID
-where L.FacilityShortName='RHS' and EmergencyAreaDescription='Shortstay Peds - ED'
-	and EmergencyAreaDate>='2016/4/1'
-order by EmergencyAreaDate+EmergencyAreaTime;
-
+/*-------------------------------------------------------------------------
+RHS ED - Arrival rates and LOS at each ED area 
+2019-12-27
+Nayef 
+*/-------------------------------------------------------------------------
 
 
 -- create a list of unique VisitIDs from vwEDVisitAreaRegional 
@@ -22,15 +11,15 @@ order by EmergencyAreaDate+EmergencyAreaTime;
 --		The next query gets the patient list after applying search criteria
 --		After that, we do a join and filter for this patient list 
 
-
 drop table if exists #t1_pt_list; 
 select distinct visitID
 into #t1_pt_list
 from EDMart.dbo.vwEDVisitAreaRegional
 where FacilityShortName='RHS' 
-	and EmergencyAreaDescription='Shortstay Peds - ED' -- If we're not focussing on a particular ED area, we can drop this filter 
-	and EmergencyAreaDate between '2016/4/1' and '2019/3/31';
---11110 rows
+	-- If we're not focussing on a particular ED area, we can drop this next filter
+	-- and EmergencyAreaDescription='Shortstay Peds - ED' 
+
+	and EmergencyAreaDate between '2017/4/1' and '2019/3/31';
 
 
 
@@ -72,16 +61,21 @@ from (select L.VisitID
 
 
 
-
-select Fiscalyear
-	, count(*) as ArrivalToSSU
-	, avg(datediff(mi, InDateTime, OutDateTime)*1.0) as SSULOSperArrival
-	, count(distinct VisitID) as EDVisitCount
+drop table if exists #t3_arrivals_and_los; 
+select FiscalYear
+	, PatientID
+	, VisitID
+	, EmergencyAreaDescription
+	, AreaDate
+	, InDateTime
+	, OutDateTime 
+	, (datediff(mi, InDateTime, OutDateTime)*1.0) as LOSperArrival
+into #t3_arrivals_and_los
 from(
 	select d.FiscalYear, L.PatientID, L.VisitID, L.EmergencyAreaDescription, L.AreaDate
 		, L.AreaDateTime as InDateTime
 		, R.AreaDateTime as OutDateTime
-	from (select * from #t2_ED_path where EmergencyAreaDescription = 'Shortstay Peds - ED') L
+	from (select * from #t2_ED_path) L
 		
 		-- bring the next row into the same row, as a new column: 
 		left join #t2_ED_path R
@@ -90,15 +84,9 @@ from(
 		left join ADTCMart.dim.date d
 			on L.AreaDate = ShortDate
 	where R.AreaDateTime is not null
-)a
-group by FiscalYear
-order by FiscalYear
+) sub
 
---Results
---16/17	3124		126.164532
---17/18	3958		122.452248
---18/19	4411		129.706415
-
+-- select * from #t3_arrivals_and_los order by VisitID, AreaDate, InDateTime
 
 
 
